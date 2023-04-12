@@ -1,0 +1,185 @@
+//import React from 'react';
+// import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+
+// import ConnectWallet from './components/ConnectWallet';
+// import Navigation from './components/Navigation';
+//import Game from './components/Game';
+// import ExchangeHistory from './components/ExchangeHistory';
+// import CardCollection from './components/CardCollection';
+// import Help from './components/Help';
+//import CONTRACT_ADDRESS from './config/contract-address';
+//import CONTRACT_ABI from './config/contract-abi';
+
+// web3Instance.jsで作成したWeb3インスタンスをインポート
+//import web3 from './lib/web3Instance';
+
+
+// スマートコントラクトとやり取りするためのコントラクトインスタンスを作成
+//const contractInstance = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+
+// App.js
+import React, { useState } from 'react';
+import { Button, Container, Row, Col } from 'react-bootstrap';
+
+const App = () => {
+  const [players, setPlayers] = useState([]);
+  const [gameStarted, setGameStarted] = useState(false);
+
+  const createDeck = () => {
+    const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+    const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    const deck = [];
+    for (let i = 0; i < suits.length; i++) {
+      for (let j = 0; j < values.length; j++) {
+        deck.push({ suit: suits[i], value: values[j] });
+      }
+    }
+    deck.push({ suit: 'joker', value: 'joker' });
+    return deck;
+  };
+
+  const shuffleDeck = (deck) => {
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+  };
+
+  const dealCards = (deck, players) => {
+    const newPlayers = players.map((player, index) => {
+      const handSize = index === players.length - 1 ? 14 : 13;
+      const hand = deck.splice(0, handSize);
+      const handWithoutPairs = removePairs(hand);
+      return { ...player, hand: handWithoutPairs };
+    });
+
+    setPlayers(newPlayers);
+  };
+
+  const removePairs = (hand) => {
+    const cardsByValue = hand.reduce((groups, card) => {
+      if (card.value) {
+        groups[card.value] = groups[card.value] || [];
+        groups[card.value].push(card);
+      }
+      return groups;
+    }, {});
+
+    const pairs = Object.values(cardsByValue).filter((group) => group.length === 2);
+    return hand.filter((card) => !pairs.includes(card));
+  };
+
+  const onStartGame = () => {
+    const deck = shuffleDeck(createDeck());
+    const playerNames = ['Player', 'NPC1', 'NPC2', 'NPC3'];
+    const players = playerNames.map((name) => ({ name, hand: [] }));
+    setCards(deck);
+    setPlayers(players);
+    setGameStarted(true);
+    // カードを配る
+let i = 0;
+while (deck.length > 0) {
+  const playerIndex = i % players.length;
+  const player = players[playerIndex];
+  const card = deck.pop();
+  player.hand.push(card);
+  i++;
+}
+
+// 1人だけ手札が1枚多い場合、ランダムに他のプレイヤーにカードを移す
+const extraCardPlayerIndex = players.findIndex(player => player.hand.length > 13);
+if (extraCardPlayerIndex !== -1) {
+  const randomIndex = Math.floor(Math.random() * players.length);
+  if (randomIndex !== extraCardPlayerIndex) {
+    const extraCard = players[extraCardPlayerIndex].hand.pop();
+    players[randomIndex].hand.push(extraCard);
+  }
+}
+
+// 同じ数字のカードをペアにして捨てる
+const updatedPlayers = players.map((player) => {
+  const handWithoutPairs = removePairs(player.hand);
+  return { ...player, hand: handWithoutPairs };
+});
+
+setPlayers(updatedPlayers);
+};
+
+const removePairs = (hand) => {
+const cardsByValue = hand.reduce((groups, card) => {
+if (card.value) {
+groups[card.value] = groups[card.value] || [];
+groups[card.value].push(card);
+}
+return groups;
+}, {});
+const pairs = Object.values(cardsByValue).filter((group) => group.length === 2);
+return hand.filter((card) => !pairs.includes(card));
+};
+
+const renderPlayers = () => {
+return players.map((player, index) => (
+<Col key={index}>
+<Card>
+<Card.Body>
+<Card.Title>{player.name}</Card.Title>
+<ul>
+{player.hand.map((card, index) => (
+<li key={index}>
+{card.value} of {card.suit}
+</li>
+))}
+</ul>
+</Card.Body>
+</Card>
+</Col>
+));
+};
+
+const renderGameBoard = () => {
+return (
+<Container>
+<Row>{renderPlayers()}</Row>
+</Container>
+);
+};
+
+const renderStartButton = () => {
+return (
+<Container>
+<Row>
+<Col>
+<Button onClick={onStartGame} disabled={gameStarted}>
+Start Game
+</Button>
+</Col>
+</Row>
+{gameStarted && (
+<>
+<Row>
+{players.map((player, index) => (
+<Col key={player.id}>
+<h4>{player.name}</h4>
+<Table striped bordered hover>
+<thead>
+<tr>
+{player.hand.map((card, index) => (
+<th key={index}>{card.value}</th>
+))}
+</tr>
+</thead>
+<tbody>
+<tr>
+{player.hand.map((card, index) => (
+<td key={index}>{card.suit}</td>
+))}
+</tr>
+</tbody>
+</Table>
+</Col>
+))}
+</Row>
+</>
+)}
+</

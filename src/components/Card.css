@@ -1,0 +1,26 @@
+.card {
+  display: inline-block;
+  background-color: white;
+  border: 1px solid black;
+  border-radius: 5px;
+  width: 50px;
+  height: 80px;
+  margin: 1px;
+}
+
+.card-face-down {
+  background-color: #ccc;
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.card-content img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
