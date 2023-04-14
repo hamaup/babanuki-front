@@ -23,21 +23,99 @@ const App = () => {
     "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
   ];
 
-  const drawCard = async (cardIndex, nextPlayerIndex) => {
 
+  const drawCard = async (cardIndex, nextPlayerIndex) => {
     const web3 = new Web3("ws://localhost:8545");
-    const senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    const senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
     const contractInstance = new web3.eth.Contract(CONTRACT_ABI.abi, CONTRACT_ADDRESS);
 
     const player = playerData[turnPlayer];
     const nextPlayer = playerData[nextPlayerIndex];
-
-    await contractInstance.methods.drawCard(turnPlayer, nextPlayerIndex, cardIndex).send({ from: senderAddress }).then(function (receipt) {
+    console.log(`before drawCard updatedPlayerData: ${JSON.stringify(playerData)}`);
+    try {
+      await contractInstance.methods.drawCard(turnPlayer, nextPlayerIndex, cardIndex).send({ from: senderAddress });
       console.log(`${player.name}が${nextPlayer.name}のカード${nextPlayer.hand[cardIndex]}(${cardIndex})をスマートコントラクトに渡しました`);
-    }).catch(function (error) {
+    } catch (error) {
       console.error(`${player.name}が${nextPlayer.name}のカード${nextPlayer.hand[cardIndex]}(${cardIndex})をスマートコントラクトに渡せませんでした:`, error);
-    });
+      return;
+    }
+
   };
+
+  useEffect(() => {
+    const web3 = new Web3("ws://localhost:8545");
+    const contractInstance = new web3.eth.Contract(CONTRACT_ABI.abi, CONTRACT_ADDRESS);
+
+    const onCardDrawn = (event) => {
+      const updatedPlayerData = playerData.map((player, index) => {
+        return {
+          ...player,
+          hand: event.returnValues[`player${index + 1}Hand`],
+        };
+      });
+      if (updatedPlayerData.length > 0) {
+        setPlayerData(updatedPlayerData);
+      }
+      console.log(`onCardDrawn updatedPlayerData: ${JSON.stringify(updatedPlayerData)}`);
+    };
+
+    const onPlayerFinished = (event) => {
+      console.log(`onPlayerFinished`);
+      const playerAddress = event.returnValues.playerAddress;
+      const hasEmptyHand = event.returnValues.hasEmptyHand;
+      const ranking = event.returnValues.ranking;
+      console.log(`${event.returnValues.playerAddress} hasEmptyHand:${hasEmptyHand}`);
+      const finishedPlayerIndex = playerData.findIndex((player) => player.address === playerAddress);
+      if (finishedPlayerIndex !== -1) {
+        const updatedPlayerData = [...playerData];
+        updatedPlayerData[finishedPlayerIndex].hasEmptyHand = true;
+        updatedPlayerData[finishedPlayerIndex].hand = updatedPlayerData[finishedPlayerIndex].hand.map(() => "0");
+        updatedPlayerData[finishedPlayerIndex].ranking = ranking;
+        setPlayerData(updatedPlayerData);
+      }
+    };
+
+    const onGameOver = (event) => {
+      console.log("game over event: " + JSON.stringify(event));
+      const eventData = event.returnValues;
+
+      // スマートコントラクトから受け取ったデータを使ってランキング処理を行う
+      const updatedPlayerData = playerData.map((player) => {
+        let ranking;
+        if (player.address === eventData.player1) {
+          ranking = parseInt(eventData.player1Ranking);
+        } else if (player.address === eventData.player2) {
+          ranking = parseInt(eventData.player2Ranking);
+        } else if (player.address === eventData.player3) {
+          ranking = parseInt(eventData.player3Ranking);
+        } else if (player.address === eventData.player4) {
+          ranking = parseInt(eventData.player4Ranking);
+        } else {
+          ranking = player.ranking;
+        }
+
+        return { ...player, ranking };
+      });
+
+      setPlayerData(updatedPlayerData);
+      setGameOver(true);
+      onResetGame();
+      setShowRankings(true);
+    };
+
+
+    const cardDrawnEvent = contractInstance.events.CardDrawn({}).on("data", onCardDrawn);
+    const playerFinishedEvent = contractInstance.events.PlayerFinished({}).on("data", onPlayerFinished);
+    const gameOverEvent = contractInstance.events.GameOver({}).on("data", onGameOver);
+
+    return () => {
+      cardDrawnEvent.unsubscribe();
+      playerFinishedEvent.unsubscribe();
+      gameOverEvent.unsubscribe();
+    };
+  }, [playerData]);
+
+
 
   const handleNextTurn = () => {
     if (gameOver) {
@@ -45,7 +123,7 @@ const App = () => {
     }
     console.log("handleNextTurn");
     setTurnPlayer((prevTurnPlayer) => (prevTurnPlayer + 1) % playerData.length);
-    console.log(playerData)
+
   };
 
   const executeNextPlayer = async () => {
@@ -54,13 +132,14 @@ const App = () => {
     }
     const currentPlayer = playerData[turnPlayer];
     if (currentPlayer.name === "Player 1") { // Human player
-      console.log("あなたの番です")
-      setIsHumanPlayer(true);
       if (currentPlayer.hasEmptyHand) {
         handleNextTurn();
         return;
       }
+      setIsHumanPlayer(true);
+      console.log("あなたの番です")
     } else { // NPC
+
       if (currentPlayer.hasEmptyHand) {
         handleNextTurn();
         return;
@@ -70,9 +149,10 @@ const App = () => {
       do {
         nextPlayerIndex = (nextPlayerIndex + 1) % playerData.length;
         if (turnPlayer === nextPlayerIndex) {
-          continue
+          continue;
         }
       } while (playerData[nextPlayerIndex].hasEmptyHand);
+
 
       let cardIndex = Math.floor(Math.random() * playerData[nextPlayerIndex].hand.length);
       let card = playerData[nextPlayerIndex].hand[cardIndex];
@@ -80,8 +160,9 @@ const App = () => {
         cardIndex = Math.floor(Math.random() * playerData[nextPlayerIndex].hand.length);
         card = playerData[nextPlayerIndex].hand[cardIndex];
       }
+      console.log(`${currentPlayer.name}が${playerData[nextPlayerIndex].name}のカード${card}(${cardIndex})を引きますよ`);
 
-      drawCard(cardIndex, nextPlayerIndex);
+      await drawCard(cardIndex, nextPlayerIndex);
       console.log(`${currentPlayer.name}が${playerData[nextPlayerIndex].name}のカード${card}(${cardIndex})を引きました`);
 
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -89,13 +170,25 @@ const App = () => {
     }
   };
 
-  const onCardClick = (cardIndex) => {
+  const onCardClick = async (cardIndex) => {
     if (!isHumanPlayer) {
       return;
     }
-    console.log("cardIndex;" + cardIndex)
+    const currentPlayer = playerData[turnPlayer];
+    if (currentPlayer.hasEmptyHand) {
+      handleNextTurn();
+      return;
+    }
+    let nextPlayerIndex = turnPlayer;
+    do {
+      nextPlayerIndex = (nextPlayerIndex + 1) % playerData.length;
+      if (turnPlayer === nextPlayerIndex) {
+        continue;
+      }
+    } while (playerData[nextPlayerIndex].hasEmptyHand);
+
     setIsHumanPlayer(false);
-    drawCard(cardIndex, 1);
+    await drawCard(cardIndex, nextPlayerIndex);
     setTimeout(() => {
       handleNextTurn();
     }, 2000);
@@ -108,40 +201,6 @@ const App = () => {
     }
   }, [turnPlayer, gameStarted]);
 
-
-
-  const onStartGame = async () => {
-    try {
-      console.log('onStartGame');
-      const web3 = new Web3("ws://localhost:8545");
-      const contractInstance = new web3.eth.Contract(CONTRACT_ABI.abi, CONTRACT_ADDRESS);
-
-      const res = await contractInstance.methods.sayHello().call();
-      console.log('Response from smart contract:', res);
-
-
-    } catch (error) {
-      console.error('Error executing smart contract function:', error);
-    }
-    try {
-      const web3 = new Web3("ws://localhost:8545");
-      const senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-      const contractInstance = new web3.eth.Contract(CONTRACT_ABI.abi, CONTRACT_ADDRESS);
-      await contractInstance.methods.startGame().send({ from: senderAddress }).then(function (receipt) {
-        console.log("Game started:", receipt);
-      }).catch(function (error) {
-        console.error("Failed to start the game:", error);
-      });
-      executeNextPlayer();
-    } catch (error) {
-      if (error.message.includes("Game has already started.")) {
-        // Display a user-friendly message, e.g., using an alert or updating the UI
-        alert("The game has already started.");
-      } else {
-        console.error(error);
-      }
-    }
-  };
 
 
   function convertToCardsArray(hand) {
@@ -192,9 +251,35 @@ const App = () => {
   }
 
 
-
-
-
+  const onStartGame = async () => {
+    try {
+      console.log('onStartGame');
+      const web3 = new Web3("ws://localhost:8545");
+      const contractInstance = new web3.eth.Contract(CONTRACT_ABI.abi, CONTRACT_ADDRESS);
+      const res = await contractInstance.methods.sayHello().call();
+      console.log('Response from smart contract:', res);
+    } catch (error) {
+      console.error('Error executing smart contract function:', error);
+    }
+    try {
+      const web3 = new Web3("ws://localhost:8545");
+      const senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      const contractInstance = new web3.eth.Contract(CONTRACT_ABI.abi, CONTRACT_ADDRESS);
+      await contractInstance.methods.startGame().send({ from: senderAddress }).then(function (receipt) {
+        console.log("Game started:", receipt);
+      }).catch(function (error) {
+        console.error("Failed to start the game:", error);
+      });
+      executeNextPlayer();
+    } catch (error) {
+      if (error.message.includes("Game has already started.")) {
+        // Display a user-friendly message, e.g., using an alert or updating the UI
+        alert("The game has already started.");
+      } else {
+        console.error(error);
+      }
+    }
+  };
 
   useEffect(() => {
     const web3 = new Web3("ws://localhost:8545");
@@ -227,75 +312,17 @@ const App = () => {
         });
         setPlayerData(newPlayerData);
         setGameStarted(true);
+        setShowRankings(false);
       } else {
         console.error(error);
       }
     });
 
-    const cardDrawnSubscription = contractInstance.events.CardDrawn({}, (error, event) => {
-      if (!error) {
-        //console.log(event.returnValues);
-        //console.log("playerData;" + JSON.stringify(playerData));
-        const updatedPlayerData = playerData.map((player, index) => {
-          return {
-            ...player,
-            hand: event.returnValues[`player${index + 1}Hand`],
-          };
-        });
-        //console.log("updatedPlayerData:" + JSON.stringify(updatedPlayerData))
-        if (updatedPlayerData.length > 0) {
-          setPlayerData(updatedPlayerData);
-        }
-      } else {
-        console.error(error);
-      }
-    });
-
-
-    const playerFinishedSubscription = contractInstance.events.PlayerFinished({}, (error, event) => {
-      if (!error) {
-        // const player = playerData[event.returnValues.player];
-        // player.ranking = event.returnValues.ranking;
-        console.log(`PlayerFinished:${JSON.stringify(event.returnValues)}`);
-        const playerAddress = event.returnValues.playerAddress;
-        const hasEmptyHand = event.returnValues.hasEmptyHand;
-        const ranking = event.returnValues.ranking;
-        console.log(`${event.returnValues.playerAddress} hasEmptyHand:${hasEmptyHand}`);
-        if (hasEmptyHand) {
-          const finishedPlayerIndex = playerData.findIndex((player) => player.address === playerAddress);
-          if (finishedPlayerIndex !== -1) {
-            const updatedPlayerData = [...playerData];
-            updatedPlayerData[finishedPlayerIndex].hasEmptyHand = true;
-            updatedPlayerData[finishedPlayerIndex].hand = updatedPlayerData[finishedPlayerIndex].hand.map(() => "0");
-            updatedPlayerData[finishedPlayerIndex].ranking = ranking;
-            setPlayerData(updatedPlayerData);
-          }
-          //setPlayerData([...playerData]); // プレイヤーデータを更新する
-          console.log("playerData;" + JSON.stringify(playerData))
-        }
-      } else {
-        console.error(error);
-      }
-    });
-
-    const gameOverSubscription = contractInstance.events.GameOver({}, (error, event) => {
-      if (!error) {
-        console.log("game over event" + JSON.stringify(event))
-        setGameOver(true);
-        onResetGame();
-        setShowRankings(true);
-      } else {
-        console.error(error);
-      }
-    });
 
 
 
     return () => {
       gameStartedSubscription.unsubscribe();
-      cardDrawnSubscription.unsubscribe();
-      playerFinishedSubscription.unsubscribe();
-      gameOverSubscription.unsubscribe();
     };
   }, [playerData]);
 
@@ -304,11 +331,10 @@ const App = () => {
 
   const onResetGame = async () => {
     try {
-      setPlayerData([]);
+
       setGameStarted(false);
       setTurnPlayer(0);
       setIsHumanPlayer(false);
-      setShowRankings(false);
       setGameOver(false);
 
       const senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -390,7 +416,7 @@ const App = () => {
             </thead>
             <tbody>
               {playerData
-                .sort((a, b) => a.id - b.id)
+                .sort((a, b) => a.ranking - b.ranking)
                 .map((player, index) => (
                   <tr key={index}>
                     <td>{player.ranking}</td>
