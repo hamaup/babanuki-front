@@ -141,6 +141,7 @@ const Game = ({
             <Row>
               <Message message={drawnCardInfo?.message} className={styles.message} />
             </Row>
+            <span className={styles.span}>NPCのカードを引いてください。</span>
             <Row>
               {playerData
                 .filter((player) => player.name !== "Player")
