@@ -1,0 +1,33 @@
+.homeContainer {
+  background-color: #222236;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  font-family: 'Roboto', sans-serif;
+  padding-top: 25px;
+}
+
+.home_image {
+  width: 300px;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.button {
+  background-color: #1cbf73;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  margin: 5px;
+  cursor: pointer;
+  border-radius: 5px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.button:hover {
+  background-color: #14a869;
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+}

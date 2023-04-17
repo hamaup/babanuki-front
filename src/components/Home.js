@@ -1,22 +1,22 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
+import styles from './Home.module.css';
 
-const Home = ({ walletConnected, connectWalletAction, startGame, onResetGame }) => {
+const Home = ({ currentAccount, connectWalletAction, startGame }) => {
   return (
-    <div>
-      {!walletConnected && <Button onClick={connectWalletAction}>Connect Wallet</Button>}
-      {walletConnected && (
-        <div>
-          <Button onClick={startGame} className="ml-3">
-            Start Game
-          </Button>
-          <a href="/profile" className="ml-3">Profile</a>
-        </div>
-      )}
-      <Button onClick={onResetGame} className="ml-3">
-        Reset
-      </Button>
-    </div>
+    <div className={styles.homeContainer}>
+      <>
+        <img src="/images/home.png" alt="Babanuki" className={styles.home_image} />
+        {!currentAccount && <Button onClick={connectWalletAction} className={styles.button}>Connect Wallet</Button>}
+        {currentAccount && (
+          <div>
+            <Button onClick={startGame} className={`${styles.button} ml-3`}>
+              Start Game
+            </Button>
+          </div>
+        )}
+      </>
+    </div >
   );
 };
 

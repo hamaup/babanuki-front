@@ -8,7 +8,7 @@ const Card = ({ card, faceDown, onClick }) => {
   return (
     <div className={cardClass} onClick={onClick}>
       <div className="card-content">
-        <img src={imageSource} alt={`${card.rank} of ${card.suit}`} />
+        <img src={imageSource} alt="babanuki card" />
       </div>
     </div>
   );
