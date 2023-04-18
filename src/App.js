@@ -134,12 +134,6 @@ const App = () => {
 
   const onGameOver = (event) => {
     const winner = event.returnValues.winner;
-    console.log("winner: ", winner);
-    const message = "ゲーム終了";
-    setDrawnCardInfo((prevState) => ({
-      ...prevState,
-      message,
-    }));
     setWinner(winner);
   };
 
@@ -295,6 +289,7 @@ const App = () => {
                   setShowRankings={setShowRankings}
                   currentAccount={currentAccount}
                   winner={winner}
+                  setDrawnCardInfo={setDrawnCardInfo}
                 />
               ) : (
                 <Home

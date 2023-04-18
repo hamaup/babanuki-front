@@ -18,7 +18,8 @@ const Game = ({
   onCardClick,
   setShowRankings,
   currentAccount,
-  winner
+  winner,
+  setDrawnCardInfo
 }) => {
 
   function convertToCardsArray(hand) {
@@ -77,6 +78,11 @@ const Game = ({
 
 
   const renderRankings = () => {
+    const message = "ゲーム終了";
+    setDrawnCardInfo((prevState) => ({
+      ...prevState,
+      message,
+    }));
     return (
       <Modal show={showRankings} onHide={() => setShowRankings(false)}>
         <Modal.Header closeButton>
