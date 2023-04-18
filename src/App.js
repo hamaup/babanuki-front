@@ -141,7 +141,7 @@ const App = () => {
     if (winner && playerData.length > 0) {
       setTimeout(() => {
         setShowRankings(true);
-      }, 3000);
+      }, 6000);
     }
   }, [winner, playerData]);
 
